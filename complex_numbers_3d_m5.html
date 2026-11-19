@@ -1,0 +1,2282 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>จำนวนเชิงซ้อน 3D Interactive - คณิตศาสตร์เพิ่มเติม ม.5</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <style>
+    :root {
+      --bg-dark: #070b14;
+      --bg-panel: rgba(15, 23, 42, 0.72);
+      --bg-card: rgba(30, 41, 59, 0.58);
+      --border-glass: rgba(148, 163, 184, 0.18);
+      --accent-cyan: #38bdf8;
+      --accent-indigo: #818cf8;
+      --accent-emerald: #34d399;
+      --accent-amber: #fbbf24;
+      --accent-rose: #fb7185;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --shadow-glow: 0 8px 32px rgba(2, 6, 23, 0.65);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'IBM Plex Sans Thai', sans-serif;
+      background: radial-gradient(circle at 20% 20%, #0f172a 0%, #070b14 60%, #03060c 100%);
+      color: var(--text-main);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    header {
+      height: 64px;
+      padding: 0 20px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-glass);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 30;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #0284c7, #6366f1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: 18px;
+      color: #fff;
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.45);
+    }
+
+    .brand-text h1 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      background: linear-gradient(to right, #f8fafc, #7dd3fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-text span {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: block;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .student-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 13px;
+    }
+
+    .student-badge:hover {
+      background: rgba(56, 189, 248, 0.18);
+      border-color: var(--accent-cyan);
+    }
+
+    .score-pill {
+      background: linear-gradient(135deg, #059669, #10b981);
+      color: #fff;
+      font-weight: 700;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+    }
+
+    .btn-admin {
+      padding: 7px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(251, 191, 36, 0.4);
+      background: rgba(251, 191, 36, 0.12);
+      color: #fde68a;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-admin:hover {
+      background: rgba(251, 191, 36, 0.25);
+      transform: translateY(-1px);
+    }
+
+    /* Main Layout */
+    .workspace {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 440px;
+      height: calc(100vh - 64px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* 3D Viewport */
+    .viewport-wrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    #three-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+    }
+
+    #three-canvas:active {
+      cursor: grabbing;
+    }
+
+    /* Floating Camera Controls */
+    .camera-toolbar {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      z-index: 15;
+    }
+
+    .cam-btn {
+      padding: 7px 12px;
+      border-radius: 10px;
+      background: var(--bg-panel);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-glass);
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .cam-btn:hover, .cam-btn.active {
+      background: rgba(56, 189, 248, 0.22);
+      border-color: var(--accent-cyan);
+      color: #e0f2fe;
+    }
+
+    /* Legend Overlay */
+    .scene-legend {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      background: var(--bg-panel);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-glass);
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+      max-width: 360px;
+      z-index: 15;
+    }
+
+    .legend-title {
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    /* 3D Hotspots Layer */
+    #hotspots-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+      z-index: 12;
+    }
+
+    .hotspot-tag {
+      position: absolute;
+      transform: translate(-50%, -130%);
+      pointer-events: auto;
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(56, 189, 248, 0.55);
+      color: #f8fafc;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+
+    .hotspot-tag:hover {
+      transform: translate(-50%, -140%) scale(1.08);
+      background: #0284c7;
+      border-color: #fff;
+    }
+
+    /* Hotspot Info Card */
+    .hotspot-card {
+      position: absolute;
+      top: 66px;
+      left: 16px;
+      width: 320px;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(18px);
+      border: 1px solid var(--accent-cyan);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: var(--shadow-glow);
+      z-index: 20;
+      display: none;
+      animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: translateY(-8px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .hotspot-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .hotspot-card-header h4 {
+      color: var(--accent-cyan);
+      font-size: 14px;
+    }
+
+    .close-mini {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    /* Right Control Panel */
+    .control-panel {
+      background: var(--bg-panel);
+      backdrop-filter: blur(20px);
+      border-left: 1px solid var(--border-glass);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+      z-index: 20;
+    }
+
+    /* Primary Tabs */
+    .main-tabs {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      padding: 10px 12px 0;
+      gap: 6px;
+      border-bottom: 1px solid var(--border-glass);
+      background: rgba(15, 23, 42, 0.6);
+    }
+
+    .tab-btn {
+      padding: 10px 6px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+    }
+
+    .tab-btn.active {
+      color: var(--accent-cyan);
+      border-bottom-color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.08);
+      border-radius: 8px 8px 0 0;
+    }
+
+    .panel-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .panel-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .panel-scroll::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.25);
+      border-radius: 999px;
+    }
+
+    .tab-content {
+      display: none;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .tab-content.active {
+      display: flex;
+    }
+
+    /* Cards inside Panel */
+    .glass-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-glass);
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Lab Sub-mode Pills */
+    .mode-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .mode-pill {
+      padding: 9px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border-glass);
+      background: rgba(15, 23, 42, 0.65);
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s ease;
+    }
+
+    .mode-pill.active {
+      background: linear-gradient(135deg, rgba(2, 132, 199, 0.35), rgba(99, 102, 241, 0.35));
+      border-color: var(--accent-cyan);
+      color: #fff;
+    }
+
+    /* Sliders */
+    .control-group {
+      margin-bottom: 12px;
+    }
+
+    .control-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      margin-bottom: 5px;
+    }
+
+    .val-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent-cyan);
+      cursor: pointer;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.2);
+    }
+
+    /* Quick Action Chips */
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .chip-btn {
+      padding: 5px 9px;
+      border-radius: 8px;
+      border: 1px solid var(--border-glass);
+      background: rgba(15, 23, 42, 0.75);
+      color: var(--text-main);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .chip-btn:hover {
+      background: rgba(56, 189, 248, 0.25);
+      border-color: var(--accent-cyan);
+    }
+
+    .chip-btn.highlight {
+      background: rgba(99, 102, 241, 0.25);
+      border-color: var(--accent-indigo);
+      color: #c7d2fe;
+      font-family: 'IBM Plex Sans Thai', sans-serif;
+      font-weight: 600;
+    }
+
+    /* Toggle Checkboxes */
+    .toggle-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .toggle-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+
+    .toggle-item input {
+      accent-color: var(--accent-cyan);
+      width: 15px;
+      height: 15px;
+    }
+
+    /* Math Readout */
+    .math-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .math-box {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      border-radius: 10px;
+      padding: 9px 10px;
+    }
+
+    .math-box.full {
+      grid-column: span 2;
+    }
+
+    .math-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+    }
+
+    .math-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      color: #f8fafc;
+      word-break: break-word;
+    }
+
+    /* Primary Buttons */
+    .btn-primary {
+      width: 100%;
+      padding: 11px 16px;
+      border-radius: 11px;
+      border: none;
+      background: linear-gradient(135deg, #0284c7, #4f46e5);
+      color: #fff;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.08);
+    }
+
+    .btn-secondary {
+      padding: 9px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border-glass);
+      background: rgba(30, 41, 59, 0.8);
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.15);
+    }
+
+    /* Mission & Quiz Styles */
+    .mission-item {
+      border: 1px solid var(--border-glass);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(15, 23, 42, 0.6);
+      margin-bottom: 10px;
+    }
+
+    .mission-item.completed {
+      border-color: var(--accent-emerald);
+      background: rgba(16, 185, 129, 0.1);
+    }
+
+    .quiz-q {
+      border: 1px solid var(--border-glass);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(15, 23, 42, 0.65);
+      margin-bottom: 12px;
+    }
+
+    .quiz-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      margin-top: 6px;
+      border-radius: 8px;
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.15s ease;
+    }
+
+    .quiz-option:hover {
+      background: rgba(56, 189, 248, 0.12);
+    }
+
+    .explanation-box {
+      margin-top: 8px;
+      padding: 9px 11px;
+      border-radius: 8px;
+      background: rgba(56, 189, 248, 0.12);
+      border-left: 3px solid var(--accent-cyan);
+      font-size: 12px;
+      line-height: 1.5;
+      display: none;
+    }
+
+    /* Form Inputs */
+    .input-field {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border-glass);
+      background: rgba(15, 23, 42, 0.85);
+      color: #fff;
+      font-family: inherit;
+      font-size: 13px;
+      outline: none;
+      margin-top: 5px;
+    }
+
+    .input-field:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    /* Modals (Registration + Admin Dashboard) */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(3, 7, 18, 0.82);
+      backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 16px;
+    }
+
+    .modal-backdrop.hidden {
+      display: none;
+    }
+
+    .modal-box {
+      width: 100%;
+      max-width: 460px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75);
+      animation: popIn 0.25s ease;
+    }
+
+    .modal-box.admin-wide {
+      max-width: 960px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .admin-body {
+      overflow-y: auto;
+      margin-top: 14px;
+      padding-right: 4px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .stat-card {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid var(--border-glass);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .stat-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      margin-top: 4px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th, td {
+      padding: 10px 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-glass);
+    }
+
+    th {
+      color: var(--text-muted);
+      font-weight: 600;
+      background: rgba(15, 23, 42, 0.8);
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--accent-emerald);
+      color: #ecfdf5;
+      padding: 12px 18px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: var(--shadow-glow);
+      z-index: 200;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s ease;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    @media (max-width: 960px) {
+      .workspace {
+        grid-template-columns: 1fr;
+        grid-template-rows: 46vh 1fr;
+      }
+      .control-panel {
+        border-left: none;
+        border-top: 1px solid var(--border-glass);
+      }
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">ℂ³</div>
+      <div class="brand-text">
+        <h1>จำนวนเชิงซ้อน 3D Interactive (ม.5)</h1>
+        <span>ระนาบอาร์กานด์ 3 มิติ • รูปเชิงขั้ว • ทฤษฎีบทของเดอมัวฟวร์</span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div class="student-badge" id="header-student-btn" title="คลิกเพื่อแก้ไขข้อมูลผู้เรียน">
+        <span id="header-student-label">👤 ยังไม่ได้ลงทะเบียน</span>
+        <span class="score-pill" id="header-score-pill">0 / 8 คะแนน</span>
+      </div>
+      <button class="btn-admin" id="open-admin-btn">🔒 ระบบหลังบ้าน (ครู)</button>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <div class="workspace">
+    <!-- Left: 3D Canvas Viewport -->
+    <div class="viewport-wrapper">
+      <canvas id="three-canvas"></canvas>
+      <div id="hotspots-layer"></div>
+
+      <!-- Camera Presets -->
+      <div class="camera-toolbar">
+        <button class="cam-btn active" data-cam="iso">🎥 มุมมอง 3D เฉียง</button>
+        <button class="cam-btn" data-cam="top">📐 มุมมอง 2D ด้านบน (XZ)</button>
+        <button class="cam-btn" data-cam="side">📊 มุมมองด้านข้าง (แกน Y)</button>
+        <button class="cam-btn" id="toggle-autorotate">🔄 หมุนอัตโนมัติ: ปิด</button>
+      </div>
+
+      <!-- Hotspot Explanation Popup -->
+      <div class="hotspot-card" id="hotspot-card">
+        <div class="hotspot-card-header">
+          <h4 id="hotspot-title">รายละเอียดจุด 3D</h4>
+          <button class="close-mini" id="close-hotspot">&times;</button>
+        </div>
+        <p id="hotspot-desc" style="font-size: 13px; line-height: 1.55; color: #e2e8f0;"></p>
+      </div>
+
+      <!-- 3D Axis & Color Legend -->
+      <div class="scene-legend">
+        <div class="legend-title">🧭 คำอธิบายแกนพิกัด 3 มิติ (คลิกป้ายบนกราฟเพื่อดูคำอธิบาย)</div>
+        <div class="legend-items">
+          <div class="legend-item"><span class="dot" style="background:#f87171;"></span> แกน X: ส่วนจริง Re(z)</div>
+          <div class="legend-item"><span class="dot" style="background:#38bdf8;"></span> แกน Z: ส่วนจินตภาพ Im(z)</div>
+          <div class="legend-item"><span class="dot" style="background:#34d399;"></span> แกน Y: มุมเฟส θ / ลำดับกำลัง n</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Interactive Control & Learning Panel -->
+    <aside class="control-panel">
+      <nav class="main-tabs">
+        <button class="tab-btn active" data-tab="lab">🧪 ห้องทดลอง 3D</button>
+        <button class="tab-btn" data-tab="missions">🎯 ภารกิจ (5)</button>
+        <button class="tab-btn" data-tab="quiz">📝 แบบทดสอบ (3)</button>
+        <button class="tab-btn" data-tab="report">📄 ใบสรุปผล</button>
+      </nav>
+
+      <div class="panel-scroll">
+        <!-- TAB 1: 3D LAB -->
+        <div class="tab-content active" id="tab-lab">
+          <div class="glass-card">
+            <div class="card-title">เลือกโหมดการเรียนรู้ 3 มิติ</div>
+            <div class="mode-grid">
+              <button class="mode-pill active" data-mode="basic">1. พื้นฐาน & รูปเชิงขั้ว</button>
+              <button class="mode-pill" data-mode="addsub">2. การบวก & ลบเวกเตอร์</button>
+              <button class="mode-pill" data-mode="muldiv">3. คูณ & หารเชิงขั้ว</button>
+              <button class="mode-pill" data-mode="demoivre">4. เดอมัวฟวร์ & รากที่ n</button>
+            </div>
+          </div>
+
+          <!-- Mode 1 Controls -->
+          <div class="glass-card mode-controls" id="controls-basic">
+            <div class="card-title">กำหนดค่า z = a + bi</div>
+            <div class="control-group">
+              <div class="slider-header">
+                <span>ส่วนจริง (a)</span>
+                <span class="val-badge" id="val-a">3.0</span>
+              </div>
+              <input type="range" id="slider-a" min="-5" max="5" step="0.5" value="3">
+            </div>
+            <div class="control-group">
+              <div class="slider-header">
+                <span>ส่วนจินตภาพ (b)</span>
+                <span class="val-badge" id="val-b">4.0</span>
+              </div>
+              <input type="range" id="slider-b" min="-5" max="5" step="0.5" value="4">
+            </div>
+
+            <div class="card-title" style="margin-top:12px;">ปุ่มลัดมุมพิเศษ & การหมุนด้วย i</div>
+            <div class="chip-row" id="special-angles">
+              <button class="chip-btn" data-deg="0">0°</button>
+              <button class="chip-btn" data-deg="30">30°</button>
+              <button class="chip-btn" data-deg="45">45°</button>
+              <button class="chip-btn" data-deg="60">60°</button>
+              <button class="chip-btn" data-deg="90">90°</button>
+              <button class="chip-btn" data-deg="120">120°</button>
+              <button class="chip-btn" data-deg="135">135°</button>
+              <button class="chip-btn" data-deg="150">150°</button>
+              <button class="chip-btn" data-deg="180">180°</button>
+              <button class="chip-btn" data-deg="270">270°</button>
+              <button class="chip-btn highlight" id="btn-mul-i">🔄 หมุน ×i (+90°)</button>
+            </div>
+
+            <div class="toggle-list">
+              <label class="toggle-item"><input type="checkbox" id="chk-conj" checked> สังยุค (z̄)</label>
+              <label class="toggle-item"><input type="checkbox" id="chk-circle" checked> วงกลมรัศมี |z|</label>
+              <label class="toggle-item"><input type="checkbox" id="chk-helix" checked> เสาเฟส 3D (แกน Y)</label>
+            </div>
+          </div>
+
+          <!-- Mode 2 Controls -->
+          <div class="glass-card mode-controls" id="controls-addsub" style="display:none;">
+            <div class="card-title">เวกเตอร์ z₁ และ z₂ บนระนาบ 3D</div>
+            <div class="control-group">
+              <div class="slider-header"><span>z₁: ส่วนจริง (a₁)</span><span class="val-badge" id="val-a1">3.0</span></div>
+              <input type="range" id="slider-a1" min="-4" max="4" step="0.5" value="3">
+            </div>
+            <div class="control-group">
+              <div class="slider-header"><span>z₁: ส่วนจินตภาพ (b₁)</span><span class="val-badge" id="val-b1">1.5</span></div>
+              <input type="range" id="slider-b1" min="-4" max="4" step="0.5" value="1.5">
+            </div>
+            <div class="control-group">
+              <div class="slider-header"><span>z₂: ส่วนจริง (a₂)</span><span class="val-badge" id="val-a2">-1.5</span></div>
+              <input type="range" id="slider-a2" min="-4" max="4" step="0.5" value="-1.5">
+            </div>
+            <div class="control-group">
+              <div class="slider-header"><span>z₂: ส่วนจินตภาพ (b₂)</span><span class="val-badge" id="val-b2">2.5</span></div>
+              <input type="range" id="slider-b2" min="-4" max="4" step="0.5" value="2.5">
+            </div>
+            <div class="toggle-list">
+              <label class="toggle-item"><input type="checkbox" id="chk-sub" checked> แสดงผลต่าง z₁ - z₂</label>
+            </div>
+          </div>
+
+          <!-- Mode 3 Controls -->
+          <div class="glass-card mode-controls" id="controls-muldiv" style="display:none;">
+            <div class="card-title">การคูณและหารในรูปเชิงขั้ว</div>
+            <div class="control-group">
+              <div class="slider-header"><span>ขนาด r₁</span><span class="val-badge" id="val-r1">2.0</span></div>
+              <input type="range" id="slider-r1" min="0.5" max="3.5" step="0.5" value="2">
+            </div>
+            <div class="control-group">
+              <div class="slider-header"><span>มุม θ₁ (องศา)</span><span class="val-badge" id="val-t1">30°</span></div>
+              <input type="range" id="slider-t1" min="0" max="330" step="15" value="30">
+            </div>
+            <div class="control-group">
+              <div class="slider-header"><span>ขนาด r₂</span><span class="val-badge" id="val-r2">1.5</span></div>
+              <input type="range" id="slider-r2" min="0.5" max="3" step="0.5" value="1.5">
+            </div>
+            <div class="control-group">
+              <div class="slider-header"><span>มุม θ₂ (องศา)</span><span class="val-badge" id="val-t2">45°</span></div>
+              <input type="range" id="slider-t2" min="0" max="330" step="15" value="45">
+            </div>
+          </div>
+
+          <!-- Mode 4 Controls -->
+          <div class="glass-card mode-controls" id="controls-demoivre" style="display:none;">
+            <div class="card-title">ทฤษฎีบทของเดอมัวฟวร์ & รากที่ n</div>
+            <div class="control-group">
+              <div class="slider-header"><span>ขนาดเริ่มต้น r</span><span class="val-badge" id="val-dr">1.4</span></div>
+              <input type="range" id="slider-dr" min="0.8" max="2.2" step="0.1" value="1.4">
+            </div>
+            <div class="control-group">
+              <div class="slider-header"><span>มุมเริ่มต้น θ (องศา)</span><span class="val-badge" id="val-dt">45°</span></div>
+              <input type="range" id="slider-dt" min="15" max="180" step="15" value="45">
+            </div>
+            <div class="control-group">
+              <div class="slider-header"><span>เลขชี้กำลัง / อันดับราก (n)</span><span class="val-badge" id="val-dn">4</span></div>
+              <input type="range" id="slider-dn" min="2" max="8" step="1" value="4">
+            </div>
+            <div class="toggle-list">
+              <label class="toggle-item"><input type="checkbox" id="chk-roots" checked> แสดงรูปหลายเหลี่ยมรากที่ n</label>
+            </div>
+          </div>
+
+          <!-- Real-time Math Readout -->
+          <div class="glass-card">
+            <div class="card-title">📐 ผลการคำนวณแบบ Real-time</div>
+            <div class="math-grid" id="math-readout"></div>
+          </div>
+        </div>
+
+        <!-- TAB 2: 3D MISSIONS -->
+        <div class="tab-content" id="tab-missions">
+          <div class="glass-card">
+            <div class="card-title">
+              <span>🎯 ภารกิจท้าทาย 3 มิติ (เต็ม 5 คะแนน)</span>
+              <span class="val-badge" id="mission-score-text">0 / 5</span>
+            </div>
+            <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">
+              ปรับค่าในโหมดที่ 1 (พื้นฐาน & รูปเชิงขั้ว) ให้จุด z ไปตรงกับวงแหวนเป้าหมายเรืองแสงในฉาก 3 มิติ แล้วกดตรวจภารกิจ
+            </p>
+            <div id="missions-container"></div>
+          </div>
+        </div>
+
+        <!-- TAB 3: INFINITE QUIZ -->
+        <div class="tab-content" id="tab-quiz">
+          <div class="glass-card">
+            <div class="card-title">
+              <span>📝 แบบทดสอบสุ่มโจทย์ (เต็ม 3 คะแนน)</span>
+              <button class="chip-btn highlight" id="btn-new-quiz">🎲 สุ่มโจทย์ชุดใหม่</button>
+            </div>
+            <div id="quiz-container"></div>
+            <button class="btn-primary" id="btn-submit-quiz">ตรวจคำตอบและบันทึกคะแนน</button>
+          </div>
+        </div>
+
+        <!-- TAB 4: REPORT CARD -->
+        <div class="tab-content" id="tab-report">
+          <div class="glass-card" id="report-card-box">
+            <div class="card-title">📄 ใบสรุปผลการเรียนรู้ส่งครูผู้สอน</div>
+            <div id="report-summary-content" style="font-size:13px; line-height:1.7;"></div>
+            <div style="display:flex; gap:8px; margin-top:14px;">
+              <button class="btn-primary" id="btn-copy-report">📋 คัดลอกผลคะแนนส่งครู</button>
+              <button class="btn-secondary" id="btn-edit-profile">✏️ แก้ไขชื่อ</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Student Registration Modal -->
+  <div class="modal-backdrop" id="reg-modal">
+    <div class="modal-box">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+        <div class="brand-icon">ℂ³</div>
+        <div>
+          <h2 style="font-size:18px;">ลงทะเบียนเข้าสู่บทเรียน 3D</h2>
+          <p style="font-size:12px; color:var(--text-muted);">กรอกข้อมูลเพื่อบันทึกคะแนนภารกิจและแบบทดสอบเข้าสู่ระบบหลังบ้าน</p>
+        </div>
+      </div>
+
+      <form id="reg-form">
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px; color:var(--text-muted);">ชื่อ - นามสกุล</label>
+          <input type="text" id="reg-name" class="input-field" placeholder="เช่น นายธนกฤต ใจดี" required>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:16px;">
+          <div>
+            <label style="font-size:13px; color:var(--text-muted);">ชั้นเรียน</label>
+            <select id="reg-class" class="input-field">
+              <option value="ม.5/1">ม.5/1</option>
+              <option value="ม.5/2">ม.5/2</option>
+              <option value="ม.5/3">ม.5/3</option>
+              <option value="ม.5/4">ม.5/4</option>
+              <option value="ม.5/5">ม.5/5</option>
+              <option value="ม.5/6">ม.5/6</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:13px; color:var(--text-muted);">เลขที่</label>
+            <input type="number" id="reg-no" class="input-field" min="1" max="60" placeholder="1-60" required>
+          </div>
+        </div>
+        <button type="submit" class="btn-primary">🚀 เริ่มเรียนรู้และบันทึกข้อมูล</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Teacher Admin Password Modal -->
+  <div class="modal-backdrop hidden" id="admin-auth-modal">
+    <div class="modal-box" style="max-width:380px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="font-size:17px;">🔒 เข้าสู่ระบบหลังบ้าน (ครูผู้สอน)</h3>
+        <button class="close-mini" id="close-auth-modal">&times;</button>
+      </div>
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:12px;">
+        กรุณากรอกรหัสผ่านสำหรับดูรายชื่อผู้ลงทะเบียนและจัดการคะแนน (รหัสเริ่มต้น: 123456)
+      </p>
+      <form id="admin-auth-form">
+        <input type="password" id="admin-pass-input" class="input-field" placeholder="กรอกรหัสผ่าน 6 หลัก" required style="margin-bottom:12px;">
+        <button type="submit" class="btn-primary">เข้าสู่ระบบหลังบ้าน</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Teacher Admin Dashboard Modal -->
+  <div class="modal-backdrop hidden" id="admin-dashboard-modal">
+    <div class="modal-box admin-wide">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-glass); padding-bottom:12px;">
+        <div>
+          <h2 style="font-size:18px; color:var(--accent-amber);">📊 ระบบหลังบ้านจัดการคะแนนนักเรียน (Teacher Dashboard)</h2>
+          <p style="font-size:12px; color:var(--text-muted);">ตรวจสอบรายชื่อผู้ลงทะเบียน แก้ไขคะแนน ภารกิจ 3D + แบบทดสอบ (เต็ม 8 คะแนน) และส่งออกไฟล์ CSV</p>
+        </div>
+        <button class="close-mini" id="close-admin-dashboard" style="font-size:24px;">&times;</button>
+      </div>
+
+      <div class="admin-body">
+        <!-- Summary Metrics -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div style="font-size:12px; color:var(--text-muted);">ผู้ลงทะเบียนทั้งหมด</div>
+            <div class="stat-num" id="stat-total">0 คน</div>
+          </div>
+          <div class="stat-card">
+            <div style="font-size:12px; color:var(--text-muted);">คะแนนเฉลี่ยรวม</div>
+            <div class="stat-num" id="stat-avg">0.00 / 8</div>
+          </div>
+          <div class="stat-card">
+            <div style="font-size:12px; color:var(--text-muted);">คะแนนสูงสุด</div>
+            <div class="stat-num" id="stat-max">0 / 8</div>
+          </div>
+          <div class="stat-card">
+            <div style="font-size:12px; color:var(--text-muted);">ผ่านเกณฑ์ (≥ 5 คะแนน)</div>
+            <div class="stat-num" id="stat-pass">0%</div>
+          </div>
+        </div>
+
+        <!-- Filter & Manual Add Controls -->
+        <div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <input type="text" id="admin-search" class="input-field" placeholder="🔍 ค้นหาชื่อหรือเลขที่..." style="width:210px; margin-top:0;">
+            <select id="admin-filter-class" class="input-field" style="width:130px; margin-top:0;">
+              <option value="ALL">ทุกห้องเรียน</option>
+              <option value="ม.5/1">ม.5/1</option>
+              <option value="ม.5/2">ม.5/2</option>
+              <option value="ม.5/3">ม.5/3</option>
+              <option value="ม.5/4">ม.5/4</option>
+              <option value="ม.5/5">ม.5/5</option>
+              <option value="ม.5/6">ม.5/6</option>
+            </select>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-secondary" id="btn-export-csv">📥 ดาวน์โหลด CSV (Excel)</button>
+          </div>
+        </div>
+
+        <!-- Manual Add / Edit Score Form -->
+        <div class="glass-card" style="margin-bottom:14px; background:rgba(30,41,59,0.45);">
+          <div class="card-title">➕ เพิ่ม / บันทึกคะแนนผู้เรียนด้วยตนเอง</div>
+          <form id="admin-add-form" style="display:grid; grid-template-columns: 2fr 1fr 0.8fr 1fr 1fr auto; gap:8px; align-items:end;">
+            <div>
+              <label style="font-size:11px; color:var(--text-muted);">ชื่อ-นามสกุล</label>
+              <input type="text" id="adm-name" class="input-field" placeholder="ชื่อ-นามสกุล" required>
+            </div>
+            <div>
+              <label style="font-size:11px; color:var(--text-muted);">ห้อง</label>
+              <select id="adm-class" class="input-field">
+                <option value="ม.5/1">ม.5/1</option>
+                <option value="ม.5/2">ม.5/2</option>
+                <option value="ม.5/3">ม.5/3</option>
+                <option value="ม.5/4">ม.5/4</option>
+                <option value="ม.5/5">ม.5/5</option>
+                <option value="ม.5/6">ม.5/6</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px; color:var(--text-muted);">เลขที่</label>
+              <input type="number" id="adm-no" class="input-field" min="1" max="60" value="1" required>
+            </div>
+            <div>
+              <label style="font-size:11px; color:var(--text-muted);">ภารกิจ (0-5)</label>
+              <input type="number" id="adm-mission" class="input-field" min="0" max="5" value="5" required>
+            </div>
+            <div>
+              <label style="font-size:11px; color:var(--text-muted);">ทดสอบ (0-3)</label>
+              <input type="number" id="adm-quiz" class="input-field" min="0" max="3" value="3" required>
+            </div>
+            <button type="submit" class="btn-primary" style="padding:10px 14px;">บันทึก</button>
+          </form>
+        </div>
+
+        <!-- Records Table -->
+        <div style="overflow-x:auto; border:1px solid var(--border-glass); border-radius:12px;">
+          <table>
+            <thead>
+              <tr>
+                <th>ห้อง</th>
+                <th>เลขที่</th>
+                <th>ชื่อ - นามสกุล</th>
+                <th>ภารกิจ 3D (5)</th>
+                <th>แบบทดสอบ (3)</th>
+                <th>คะแนนรวม (8)</th>
+                <th>อัปเดตล่าสุด</th>
+                <th>จัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="admin-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast">บันทึกข้อมูลเรียบร้อย</div>
+
+  <script>
+    // =========================================================
+    // 1. STATE & STORAGE MANAGEMENT
+    // =========================================================
+    const STORAGE_KEY_RECORDS = 'complex3d_m5_student_records_v1';
+    const STORAGE_KEY_CURRENT = 'complex3d_m5_current_student_v1';
+
+    let currentStudent = null;
+    let studentRecords = [];
+
+    const appState = {
+      mode: 'basic', // basic | addsub | muldiv | demoivre
+      a: 3,
+      b: 4,
+      showConj: true,
+      showCircle: true,
+      showHelix: true,
+      // addsub
+      a1: 3, b1: 1.5,
+      a2: -1.5, b2: 2.5,
+      showSub: true,
+      // muldiv
+      r1: 2.0, t1: 30,
+      r2: 1.5, t2: 45,
+      // demoivre
+      dr: 1.4, dt: 45, dn: 4,
+      showRoots: true,
+      // missions
+      activeMissionIdx: 0,
+      completedMissions: [false, false, false, false, false],
+      // quiz
+      quizScore: 0,
+      quizQuestions: []
+    };
+
+    const missionsData = [
+      { id: 0, title: 'ภารกิจที่ 1: สามเหลี่ยมพีทาโกรัส', desc: 'ปรับค่า z ให้อยู่ที่พิกัด (3, 4) เพื่อให้ |z| = 5', targetA: 3, targetB: 4 },
+      { id: 1, title: 'ภารกิจที่ 2: จตุภาคที่ 2 มุม 135°', desc: 'ปรับค่า z ไปยัง (-3, 3) (ขนาด 3√2, มุม 135°)', targetA: -3, targetB: 3 },
+      { id: 2, title: 'ภารกิจที่ 3: แกนจินตภาพด้านลบ', desc: 'ปรับค่า z ไปยัง (0, -4) หรือ -4i (มุม 270°)', targetA: 0, targetB: -4 },
+      { id: 3, title: 'ภารกิจที่ 4: จตุภาคที่ 3', desc: 'ปรับค่า z ไปยัง (-4, -3) เพื่อให้ส่วนจริงและส่วนจินตภาพเป็นลบ', targetA: -4, targetB: -3 },
+      { id: 4, title: 'ภารกิจที่ 5: จตุภาคที่ 4 สมมาตร', desc: 'ปรับค่า z ไปยัง (2.5, -2.5) (มุม 315°)', targetA: 2.5, targetB: -2.5 }
+    ];
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2800);
+    }
+
+    function loadStorage() {
+      try {
+        const rawRec = localStorage.getItem(STORAGE_KEY_RECORDS);
+        studentRecords = rawRec ? JSON.parse(rawRec) : [];
+        const rawCur = localStorage.getItem(STORAGE_KEY_CURRENT);
+        currentStudent = rawCur ? JSON.parse(rawCur) : null;
+      } catch (e) {
+        studentRecords = [];
+        currentStudent = null;
+      }
+    }
+
+    function saveStorage() {
+      localStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(studentRecords));
+      if (currentStudent) {
+        localStorage.setItem(STORAGE_KEY_CURRENT, JSON.stringify(currentStudent));
+      }
+    }
+
+    function getMissionScore() {
+      return appState.completedMissions.filter(Boolean).length;
+    }
+
+    function syncCurrentStudentScore() {
+      const mScore = getMissionScore();
+      const qScore = appState.quizScore;
+      const total = mScore + qScore;
+
+      document.getElementById('header-score-pill').textContent = `${total} / 8 คะแนน`;
+
+      if (currentStudent) {
+        document.getElementById('header-student-label').textContent =
+          `👤 ${currentStudent.name} (${currentStudent.className} เลขที่ ${currentStudent.no})`;
+
+        const key = `${currentStudent.className}_${currentStudent.no}_${currentStudent.name.trim()}`;
+        const nowStr = new Date().toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
+        const idx = studentRecords.findIndex(r => r.id === key);
+
+        const recordObj = {
+          id: key,
+          name: currentStudent.name.trim(),
+          className: currentStudent.className,
+          no: Number(currentStudent.no),
+          missionScore: mScore,
+          quizScore: qScore,
+          totalScore: total,
+          updatedAt: nowStr
+        };
+
+        if (idx >= 0) {
+          studentRecords[idx] = recordObj;
+        } else {
+          studentRecords.push(recordObj);
+        }
+        saveStorage();
+      }
+      renderReportCard();
+    }
+
+    // =========================================================
+    // 2. THREE.JS 3D SCENE SETUP
+    // =========================================================
+    const canvas = document.getElementById('three-canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x070b14, 0.022);
+
+    const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 100);
+    camera.position.set(8.5, 7.5, 9.5);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.maxDistance = 28;
+    controls.minDistance = 4;
+    controls.target.set(0, 1.0, 0);
+
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0x94a3b8, 0.75);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.1);
+    dirLight.position.set(8, 14, 10);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    const rimLight = new THREE.PointLight(0x38bdf8, 1.2, 25);
+    rimLight.position.set(-7, 6, -7);
+    scene.add(rimLight);
+
+    // Base Plane & Grid (XZ Plane = Complex Plane: X=Re, Z=Im)
+    const planeGeo = new THREE.PlaneGeometry(14, 14);
+    const planeMat = new THREE.MeshStandardMaterial({
+      color: 0x0f172a,
+      roughness: 0.7,
+      metalness: 0.2,
+      transparent: true,
+      opacity: 0.72,
+      side: THREE.DoubleSide
+    });
+    const basePlane = new THREE.Mesh(planeGeo, planeMat);
+    basePlane.rotation.x = -Math.PI / 2;
+    basePlane.receiveShadow = true;
+    scene.add(basePlane);
+
+    const gridHelper = new THREE.GridHelper(12, 12, 0x38bdf8, 0x1e293b);
+    gridHelper.position.y = 0.01;
+    scene.add(gridHelper);
+
+    // Custom 3D Axes (X = Red/Re, Z = Cyan/Im, Y = Emerald/Phase-Power)
+    function buildAxisLine(start, end, color) {
+      const mat = new THREE.LineBasicMaterial({ color });
+      const geo = new THREE.BufferGeometry().setFromPoints([start, end]);
+      return new THREE.Line(geo, mat);
+    }
+    scene.add(buildAxisLine(new THREE.Vector3(-6.2, 0.02, 0), new THREE.Vector3(6.2, 0.02, 0), 0xf87171));
+    scene.add(buildAxisLine(new THREE.Vector3(0, 0.02, -6.2), new THREE.Vector3(0, 0.02, 6.2), 0x38bdf8));
+    scene.add(buildAxisLine(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 6.2, 0), 0x34d399));
+
+    // Dynamic Objects Group
+    const dynamicGroup = new THREE.Group();
+    scene.add(dynamicGroup);
+
+    let activeHotspots = [];
+
+    function clearDynamicGroup() {
+      while (dynamicGroup.children.length > 0) {
+        const obj = dynamicGroup.children[0];
+        dynamicGroup.remove(obj);
+      }
+      activeHotspots = [];
+    }
+
+    function createVector3D(from, to, color, radius = 0.06) {
+      const group = new THREE.Group();
+      const dir = new THREE.Vector3().subVectors(to, from);
+      const len = dir.length();
+      if (len < 0.02) return group;
+
+      const shaftLen = Math.max(0.01, len - 0.32);
+      const shaftGeo = new THREE.CylinderGeometry(radius, radius, shaftLen, 16);
+      const mat = new THREE.MeshStandardMaterial({
+        color,
+        emissive: color,
+        emissiveIntensity: 0.25,
+        roughness: 0.3
+      });
+      const shaft = new THREE.Mesh(shaftGeo, mat);
+      shaft.position.y = shaftLen / 2;
+
+      const coneGeo = new THREE.ConeGeometry(radius * 2.4, 0.34, 18);
+      const cone = new THREE.Mesh(coneGeo, mat);
+      cone.position.y = shaftLen + 0.16;
+
+      group.add(shaft, cone);
+      group.position.copy(from);
+      group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+      return group;
+    }
+
+    function createSphereNode(pos, color, size = 0.18) {
+      const geo = new THREE.SphereGeometry(size, 24, 24);
+      const mat = new THREE.MeshStandardMaterial({
+        color,
+        emissive: color,
+        emissiveIntensity: 0.45,
+        roughness: 0.2
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.copy(pos);
+      mesh.castShadow = true;
+      return mesh;
+    }
+
+    function createCircleRing(radius, yHeight, color, opacity = 0.55) {
+      if (radius < 0.05) return new THREE.Group();
+      const pts = [];
+      for (let i = 0; i <= 72; i++) {
+        const ang = (i / 72) * Math.PI * 2;
+        pts.push(new THREE.Vector3(Math.cos(ang) * radius, yHeight, Math.sin(ang) * radius));
+      }
+      const geo = new THREE.BufferGeometry().setFromPoints(pts);
+      const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity });
+      return new THREE.Line(geo, mat);
+    }
+
+    function createDashedSegment(p1, p2, color) {
+      const geo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+      const mat = new THREE.LineDashedMaterial({ color, dashSize: 0.2, gapSize: 0.12 });
+      const line = new THREE.Line(geo, mat);
+      line.computeLineDistances();
+      return line;
+    }
+
+    function registerHotspot(pos3D, label, title, desc) {
+      activeHotspots.push({ pos: pos3D.clone(), label, title, desc });
+    }
+
+    // =========================================================
+    // 3. BUILD 3D SCENE PER MODE + MATH READOUT
+    // =========================================================
+    function formatNum(n) {
+      return Math.abs(n) < 1e-6 ? '0' : Number(n.toFixed(2)).toString();
+    }
+
+    function formatComplex(re, im) {
+      const rStr = formatNum(re);
+      const iAbs = formatNum(Math.abs(im));
+      if (Math.abs(im) < 1e-6) return rStr;
+      if (Math.abs(re) < 1e-6) return `${im < 0 ? '-' : ''}${iAbs === '1' ? '' : iAbs}i`;
+      return `${rStr} ${im >= 0 ? '+' : '-'} ${iAbs === '1' ? '' : iAbs}i`;
+    }
+
+    function getAngleDeg(re, im) {
+      let deg = (Math.atan2(im, re) * 180) / Math.PI;
+      if (deg < 0) deg += 360;
+      return deg;
+    }
+
+    function rebuild3DScene() {
+      clearDynamicGroup();
+      const readoutEl = document.getElementById('math-readout');
+
+      if (appState.mode === 'basic') {
+        const a = appState.a;
+        const b = appState.b;
+        const r = Math.hypot(a, b);
+        const deg = getAngleDeg(a, b);
+        const rad = (deg * Math.PI) / 180;
+        const yPhase = (deg / 360) * 4.0; // 3D Phase Height
+
+        const pZ = new THREE.Vector3(a, 0.05, b);
+        const pZ3D = new THREE.Vector3(a, yPhase, b);
+
+        // Vector z on XZ plane
+        dynamicGroup.add(createVector3D(new THREE.Vector3(0, 0.05, 0), pZ, 0x38bdf8, 0.065));
+        dynamicGroup.add(createSphereNode(pZ, 0x38bdf8, 0.2));
+
+        // Projections to axes
+        dynamicGroup.add(createDashedSegment(pZ, new THREE.Vector3(a, 0.05, 0), 0x94a3b8));
+        dynamicGroup.add(createDashedSegment(pZ, new THREE.Vector3(0, 0.05, b), 0x94a3b8));
+
+        registerHotspot(
+          pZ,
+          `z = ${formatComplex(a, b)}`,
+          `จำนวนเชิงซ้อน z = ${formatComplex(a, b)}`,
+          `พิกัดบนระนาบอาร์กานด์คือ (${formatNum(a)}, ${formatNum(b)}) มีระยะห่างจากจุดกำเนิด (ค่าสัมบูรณ์ |z|) เท่ากับ ${formatNum(r)} หน่วย`
+        );
+
+        // 3D Phase Pillar (Y-axis shows angle elevation)
+        if (appState.showHelix && r > 0.05) {
+          dynamicGroup.add(createDashedSegment(pZ, pZ3D, 0x34d399));
+          dynamicGroup.add(createSphereNode(pZ3D, 0x34d399, 0.16));
+          dynamicGroup.add(createVector3D(new THREE.Vector3(0, yPhase, 0), pZ3D, 0x34d399, 0.04));
+          registerHotspot(
+            pZ3D,
+            `θ = ${formatNum(deg)}°`,
+            `มิติความสูงของมุมอาร์กิวเมนต์ (θ = ${formatNum(deg)}°)`,
+            `แกน Y แสดงระดับมุม θ ตั้งแต่ 0° ถึง 360° ยิ่งมุมมากขึ้น จุดใน 3 มิติจะยกตัวสูงขึ้นในรูปเชิงขั้ว z = ${formatNum(r)}(cos ${formatNum(deg)}° + i sin ${formatNum(deg)}°)`
+          );
+        }
+
+        // Conjugate z_bar
+        if (appState.showConj) {
+          const pConj = new THREE.Vector3(a, 0.05, -b);
+          dynamicGroup.add(createVector3D(new THREE.Vector3(0, 0.05, 0), pConj, 0xfb7185, 0.05));
+          dynamicGroup.add(createSphereNode(pConj, 0xfb7185, 0.16));
+          dynamicGroup.add(createDashedSegment(pZ, pConj, 0xfb7185));
+          registerHotspot(
+            pConj,
+            `z̄ = ${formatComplex(a, -b)}`,
+            `สังยุคของจำนวนเชิงซ้อน (Conjugate: z̄)`,
+            `เกิดจากการสะท้อนเวกเตอร์ z ข้ามแกนจริง (แกน X) ทำให้เครื่องหมายหน้าส่วนจินตภาพเปลี่ยนเป็นตรงข้าม: z̄ = ${formatComplex(a, -b)}`
+          );
+        }
+
+        // Modulus Circle
+        if (appState.showCircle && r > 0.05) {
+          dynamicGroup.add(createCircleRing(r, 0.04, 0xfbbf24, 0.65));
+        }
+
+        // Active Mission Target Ring in 3D
+        const curM = missionsData[appState.activeMissionIdx];
+        if (curM) {
+          const ringGeo = new THREE.RingGeometry(0.28, 0.44, 32);
+          const ringMat = new THREE.MeshBasicMaterial({
+            color: appState.completedMissions[curM.id] ? 0x34d399 : 0xfbbf24,
+            side: THREE.DoubleSide
+          });
+          const targetRing = new THREE.Mesh(ringGeo, ringMat);
+          targetRing.rotation.x = -Math.PI / 2;
+          targetRing.position.set(curM.targetA, 0.08, curM.targetB);
+          dynamicGroup.add(targetRing);
+        }
+
+        readoutEl.innerHTML = `
+          <div class="math-box"><div class="math-label">รูปมาตรฐาน (a + bi)</div><div class="math-val">${formatComplex(a, b)}</div></div>
+          <div class="math-box"><div class="math-label">สังยุค (z̄)</div><div class="math-val" style="color:#fb7185;">${formatComplex(a, -b)}</div></div>
+          <div class="math-box"><div class="math-label">ค่าสัมบูรณ์ |z| = √(a²+b²)</div><div class="math-val" style="color:#fbbf24;">${formatNum(r)}</div></div>
+          <div class="math-box"><div class="math-label">มุมอาร์กิวเมนต์ (θ)</div><div class="math-val" style="color:#34d399;">${formatNum(deg)}° (${formatNum(rad)} rad)</div></div>
+          <div class="math-box full"><div class="math-label">รูปเชิงขั้ว r(cos θ + i sin θ)</div><div class="math-val">${formatNum(r)}(cos ${formatNum(deg)}° + i sin ${formatNum(deg)}°)</div></div>
+        `;
+      }
+
+      else if (appState.mode === 'addsub') {
+        const { a1, b1, a2, b2 } = appState;
+        const p1 = new THREE.Vector3(a1, 0.06, b1);
+        const p2 = new THREE.Vector3(a2, 0.06, b2);
+        const pSum = new THREE.Vector3(a1 + a2, 0.06, b1 + b2);
+
+        dynamicGroup.add(createVector3D(new THREE.Vector3(0, 0.06, 0), p1, 0x38bdf8, 0.06));
+        dynamicGroup.add(createSphereNode(p1, 0x38bdf8, 0.16));
+
+        dynamicGroup.add(createVector3D(new THREE.Vector3(0, 0.06, 0), p2, 0x818cf8, 0.06));
+        dynamicGroup.add(createSphereNode(p2, 0x818cf8, 0.16));
+
+        // Resultant z1 + z2
+        dynamicGroup.add(createVector3D(new THREE.Vector3(0, 0.06, 0), pSum, 0x34d399, 0.075));
+        dynamicGroup.add(createSphereNode(pSum, 0x34d399, 0.2));
+
+        // Parallelogram dashed lines
+        dynamicGroup.add(createDashedSegment(p1, pSum, 0x64748b));
+        dynamicGroup.add(createDashedSegment(p2, pSum, 0x64748b));
+
+        registerHotspot(p1, `z₁ = ${formatComplex(a1, b1)}`, 'เวกเตอร์ตัวตั้ง z₁', `z₁ = ${formatComplex(a1, b1)}`);
+        registerHotspot(p2, `z₂ = ${formatComplex(a2, b2)}`, 'เวกเตอร์ตัวบวก z₂', `z₂ = ${formatComplex(a2, b2)}`);
+        registerHotspot(
+          pSum,
+          `z₁+z₂ = ${formatComplex(a1 + a2, b1 + b2)}`,
+          'ผลบวกเวกเตอร์เชิงซ้อน (กฎสี่เหลี่ยมด้านขนาน)',
+          `นำส่วนจริงบวกกัน และส่วนจินตภาพบวกกัน: (${formatNum(a1)} + ${formatNum(a2)}) + (${formatNum(b1)} + ${formatNum(b2)})i = ${formatComplex(a1 + a2, b1 + b2)}`
+        );
+
+        if (appState.showSub) {
+          const pDiff = new THREE.Vector3(a1 - a2, 0.06, b1 - b2);
+          dynamicGroup.add(createVector3D(new THREE.Vector3(0, 0.06, 0), pDiff, 0xfbbf24, 0.055));
+          dynamicGroup.add(createSphereNode(pDiff, 0xfbbf24, 0.16));
+          registerHotspot(
+            pDiff,
+            `z₁-z₂ = ${formatComplex(a1 - a2, b1 - b2)}`,
+            'ผลต่างจำนวนเชิงซ้อน (z₁ - z₂)',
+            `เทียบเท่ากับการบวก z₁ ด้วยเวกเตอร์ตรงข้าม -z₂ ได้ผลลัพธ์เป็น ${formatComplex(a1 - a2, b1 - b2)}`
+          );
+        }
+
+        readoutEl.innerHTML = `
+          <div class="math-box"><div class="math-label">z₁</div><div class="math-val" style="color:#38bdf8;">${formatComplex(a1, b1)}</div></div>
+          <div class="math-box"><div class="math-label">z₂</div><div class="math-val" style="color:#818cf8;">${formatComplex(a2, b2)}</div></div>
+          <div class="math-box"><div class="math-label">ผลบวก (z₁ + z₂)</div><div class="math-val" style="color:#34d399;">${formatComplex(a1 + a2, b1 + b2)}</div></div>
+          <div class="math-box"><div class="math-label">ผลต่าง (z₁ - z₂)</div><div class="math-val" style="color:#fbbf24;">${formatComplex(a1 - a2, b1 - b2)}</div></div>
+        `;
+      }
+
+      else if (appState.mode === 'muldiv') {
+        const { r1, t1, r2, t2 } = appState;
+        const rad1 = (t1 * Math.PI) / 180;
+        const rad2 = (t2 * Math.PI) / 180;
+
+        const p1 = new THREE.Vector3(r1 * Math.cos(rad1), 0.5, r1 * Math.sin(rad1));
+        const p2 = new THREE.Vector3(r2 * Math.cos(rad2), 1.0, r2 * Math.sin(rad2));
+
+        const rMul = r1 * r2;
+        const tMul = (t1 + t2) % 360;
+        const radMul = (tMul * Math.PI) / 180;
+        const pMul = new THREE.Vector3(rMul * Math.cos(radMul), 2.0, rMul * Math.sin(radMul));
+
+        const rDiv = r1 / r2;
+        const tDiv = (t1 - t2 + 360) % 360;
+        const radDiv = (tDiv * Math.PI) / 180;
+        const pDiv = new THREE.Vector3(rDiv * Math.cos(radDiv), 0.1, rDiv * Math.sin(radDiv));
+
+        dynamicGroup.add(createVector3D(new THREE.Vector3(0, 0.5, 0), p1, 0x38bdf8, 0.055));
+        dynamicGroup.add(createSphereNode(p1, 0x38bdf8, 0.15));
+
+        dynamicGroup.add(createVector3D(new THREE.Vector3(0, 1.0, 0), p2, 0x818cf8, 0.055));
+        dynamicGroup.add(createSphereNode(p2, 0x818cf8, 0.15));
+
+        dynamicGroup.add(createVector3D(new THREE.Vector3(0, 2.0, 0), pMul, 0x34d399, 0.07));
+        dynamicGroup.add(createSphereNode(pMul, 0x34d399, 0.2));
+        dynamicGroup.add(createCircleRing(rMul, 2.0, 0x34d399, 0.35));
+
+        dynamicGroup.add(createVector3D(new THREE.Vector3(0, 0.1, 0), pDiv, 0xfbbf24, 0.055));
+        dynamicGroup.add(createSphereNode(pDiv, 0xfbbf24, 0.16));
+
+        registerHotspot(p1, `z₁ (${r1}∠${t1}°)`, 'ตัวตั้ง z₁', `ขนาด r₁ = ${r1}, มุม θ₁ = ${t1}°`);
+        registerHotspot(p2, `z₂ (${r2}∠${t2}°)`, 'ตัวคูณ/หาร z₂', `ขนาด r₂ = ${r2}, มุม θ₂ = ${t2}°`);
+        registerHotspot(
+          pMul,
+          `z₁·z₂ (${formatNum(rMul)}∠${tMul}°)`,
+          'ผลคูณในรูปเชิงขั้ว (z₁ · z₂)',
+          `นำขนาดมาคูณกัน (r₁r₂ = ${formatNum(rMul)}) และนำมุมมาบวกกัน (θ₁ + θ₂ = ${t1}° + ${t2}° = ${t1 + t2}°)`
+        );
+        registerHotspot(
+          pDiv,
+          `z₁/z₂ (${formatNum(rDiv)}∠${tDiv}°)`,
+          'ผลหารในรูปเชิงขั้ว (z₁ / z₂)',
+          `นำขนาดมาหารกัน (r₁/r₂ = ${formatNum(rDiv)}) และนำมุมมาลบกัน (θ₁ - θ₂ = ${tDiv}°)`
+        );
+
+        readoutEl.innerHTML = `
+          <div class="math-box"><div class="math-label">z₁ (เชิงขั้ว)</div><div class="math-val" style="color:#38bdf8;">${r1} ∠ ${t1}°</div></div>
+          <div class="math-box"><div class="math-label">z₂ (เชิงขั้ว)</div><div class="math-val" style="color:#818cf8;">${r2} ∠ ${t2}°</div></div>
+          <div class="math-box full"><div class="math-label">ผลคูณ z₁·z₂ = r₁r₂ ∠ (θ₁+θ₂)</div><div class="math-val" style="color:#34d399;">${formatNum(rMul)} ∠ ${tMul}° = ${formatComplex(pMul.x, pMul.z)}</div></div>
+          <div class="math-box full"><div class="math-label">ผลหาร z₁/z₂ = (r₁/r₂) ∠ (θ₁-θ₂)</div><div class="math-val" style="color:#fbbf24;">${formatNum(rDiv)} ∠ ${tDiv}° = ${formatComplex(pDiv.x, pDiv.z)}</div></div>
+        `;
+      }
+
+      else if (appState.mode === 'demoivre') {
+        const { dr, dt, dn } = appState;
+        const helixPts = [];
+
+        // Build 3D Helix for z^1, z^2, ..., z^n along Y-axis
+        for (let k = 1; k <= dn; k++) {
+          const rk = Math.pow(dr, k);
+          const tk = (dt * k) % 360;
+          const radk = (dt * k * Math.PI) / 180;
+          const yk = k * 0.65;
+          const pk = new THREE.Vector3(rk * Math.cos(radk), yk, rk * Math.sin(radk));
+          helixPts.push(pk);
+
+          const isLast = k === dn;
+          const col = isLast ? 0x34d399 : 0x38bdf8;
+          dynamicGroup.add(createVector3D(new THREE.Vector3(0, yk, 0), pk, col, isLast ? 0.065 : 0.04));
+          dynamicGroup.add(createSphereNode(pk, col, isLast ? 0.2 : 0.13));
+
+          if (k === 1 || isLast) {
+            registerHotspot(
+              pk,
+              isLast ? `z^${dn} (${formatNum(rk)}∠${tk}°)` : `z¹ (${dr}∠${dt}°)`,
+              isLast ? `ผลลัพธ์เดอมัวฟวร์ z^${dn}` : 'ฐานจำนวนเชิงซ้อน z',
+              isLast
+                ? `ตามทฤษฎีบทของเดอมัวฟวร์: z^${dn} = r^${dn}(cos ${dn}θ + i sin ${dn}θ) มีขนาด ${formatNum(rk)} และมุม ${dt * dn}° (หรือ ${tk}°)`
+                : `จุดเริ่มต้น z มีขนาด ${dr} และมุม ${dt}°`
+            );
+          }
+        }
+
+        if (helixPts.length > 1) {
+          const helixGeo = new THREE.BufferGeometry().setFromPoints(helixPts);
+          const helixMat = new THREE.LineBasicMaterial({ color: 0x34d399 });
+          dynamicGroup.add(new THREE.Line(helixGeo, helixMat));
+        }
+
+        // n-th roots polygon on Y = 0.08
+        const rootR = Math.pow(dr, 1 / dn);
+        const rootPts = [];
+        if (appState.showRoots) {
+          dynamicGroup.add(createCircleRing(rootR, 0.08, 0xfbbf24, 0.65));
+          for (let m = 0; m < dn; m++) {
+            const angM = ((dt + 360 * m) / dn) * (Math.PI / 180);
+            const pm = new THREE.Vector3(rootR * Math.cos(angM), 0.08, rootR * Math.sin(angM));
+            rootPts.push(pm);
+            dynamicGroup.add(createSphereNode(pm, 0xfbbf24, 0.14));
+          }
+          if (rootPts.length > 0) {
+            rootPts.push(rootPts[0].clone());
+            const polyGeo = new THREE.BufferGeometry().setFromPoints(rootPts);
+            const polyMat = new THREE.LineBasicMaterial({ color: 0xfbbf24 });
+            dynamicGroup.add(new THREE.Line(polyGeo, polyMat));
+
+            registerHotspot(
+              rootPts[0],
+              `รากที่ ${dn} (${dn} จุดยอด)`,
+              `รากที่ ${dn} ของ z (รูป ${dn} เหลี่ยมด้านเท่า)`,
+              `รากที่ ${dn} ทั้งหมดมีขนาดเท่ากันคือ r^(1/${dn}) = ${formatNum(rootR)} และทำมุมห่างกันทีละ 360°/${dn} = ${formatNum(360 / dn)}° บนวงกลมรัศมีเดียวกัน`
+            );
+          }
+        }
+
+        const rn = Math.pow(dr, dn);
+        const tn = (dt * dn) % 360;
+        const radn = (tn * Math.PI) / 180;
+
+        readoutEl.innerHTML = `
+          <div class="math-box"><div class="math-label">ขนาด |z^${dn}| = r^${dn}</div><div class="math-val" style="color:#34d399;">${formatNum(rn)}</div></div>
+          <div class="math-box"><div class="math-label">มุม ${dn}θ (mod 360°)</div><div class="math-val" style="color:#38bdf8;">${dt * dn}° (${tn}°)</div></div>
+          <div class="math-box full"><div class="math-label">ค่า z^${dn} ในรูปมาตรฐาน</div><div class="math-val">${formatComplex(rn * Math.cos(radn), rn * Math.sin(radn))}</div></div>
+          <div class="math-box full"><div class="math-label">รัศมีของรากที่ ${dn} (r^(1/${dn}))</div><div class="math-val" style="color:#fbbf24;">${formatNum(rootR)} (มีรากทั้งหมด ${dn} ราก)</div></div>
+        `;
+      }
+    }
+
+    // Update 2D screen positions of 3D hotspots
+    const hotspotsLayer = document.getElementById('hotspots-layer');
+    function updateHotspotsDOM() {
+      const rect = canvas.getBoundingClientRect();
+      // Sync tags count
+      while (hotspotsLayer.children.length > activeHotspots.length) {
+        hotspotsLayer.removeChild(hotspotsLayer.lastChild);
+      }
+      while (hotspotsLayer.children.length < activeHotspots.length) {
+        const btn = document.createElement('button');
+        btn.className = 'hotspot-tag';
+        hotspotsLayer.appendChild(btn);
+      }
+
+      activeHotspots.forEach((hs, idx) => {
+        const tag = hotspotsLayer.children[idx];
+        const projected = hs.pos.clone().project(camera);
+        if (projected.z > 1) {
+          tag.style.display = 'none';
+          return;
+        }
+        const x = (projected.x * 0.5 + 0.5) * rect.width;
+        const y = (-projected.y * 0.5 + 0.5) * rect.height;
+        tag.style.display = 'block';
+        tag.style.left = `${x}px`;
+        tag.style.top = `${y}px`;
+        tag.textContent = hs.label;
+        tag.onclick = () => {
+          document.getElementById('hotspot-title').textContent = hs.title;
+          document.getElementById('hotspot-desc').textContent = hs.desc;
+          document.getElementById('hotspot-card').style.display = 'block';
+        };
+      });
+    }
+
+    document.getElementById('close-hotspot').onclick = () => {
+      document.getElementById('hotspot-card').style.display = 'none';
+    };
+
+    // Resize & Animation Loop
+    function handleResize() {
+      const parent = canvas.parentElement;
+      const w = parent.clientWidth;
+      const h = parent.clientHeight;
+      renderer.setSize(w, h);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', handleResize);
+    handleResize();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      updateHotspotsDOM();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // =========================================================
+    // 4. UI CONTROLS & EVENT LISTENERS
+    // =========================================================
+    // Main Tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+      });
+    });
+
+    // Lab Mode Pills
+    document.querySelectorAll('.mode-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        document.querySelectorAll('.mode-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        appState.mode = pill.dataset.mode;
+
+        document.querySelectorAll('.mode-controls').forEach(el => (el.style.display = 'none'));
+        document.getElementById(`controls-${appState.mode}`).style.display = 'block';
+        document.getElementById('hotspot-card').style.display = 'none';
+        rebuild3DScene();
+      });
+    });
+
+    // Camera Presets
+    document.querySelectorAll('.cam-btn[data-cam]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.cam-btn[data-cam]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const preset = btn.dataset.cam;
+        if (preset === 'iso') {
+          camera.position.set(8.5, 7.5, 9.5);
+          controls.target.set(0, 1.0, 0);
+        } else if (preset === 'top') {
+          camera.position.set(0, 13.5, 0.01);
+          controls.target.set(0, 0, 0);
+        } else if (preset === 'side') {
+          camera.position.set(12.5, 3.0, 0);
+          controls.target.set(0, 1.8, 0);
+        }
+      });
+    });
+
+    document.getElementById('toggle-autorotate').addEventListener('click', e => {
+      controls.autoRotate = !controls.autoRotate;
+      controls.autoRotateSpeed = 1.6;
+      e.target.textContent = `🔄 หมุนอัตโนมัติ: ${controls.autoRotate ? 'เปิด' : 'ปิด'}`;
+      e.target.classList.toggle('active', controls.autoRotate);
+    });
+
+    // Sliders Binding
+    function bindSlider(id, stateKey, labelId, suffix = '') {
+      const el = document.getElementById(id);
+      el.addEventListener('input', () => {
+        appState[stateKey] = parseFloat(el.value);
+        document.getElementById(labelId).textContent = `${appState[stateKey]}${suffix}`;
+        rebuild3DScene();
+      });
+    }
+
+    bindSlider('slider-a', 'a', 'val-a');
+    bindSlider('slider-b', 'b', 'val-b');
+    bindSlider('slider-a1', 'a1', 'val-a1');
+    bindSlider('slider-b1', 'b1', 'val-b1');
+    bindSlider('slider-a2', 'a2', 'val-a2');
+    bindSlider('slider-b2', 'b2', 'val-b2');
+    bindSlider('slider-r1', 'r1', 'val-r1');
+    bindSlider('slider-t1', 't1', 'val-t1', '°');
+    bindSlider('slider-r2', 'r2', 'val-r2');
+    bindSlider('slider-t2', 't2', 'val-t2', '°');
+    bindSlider('slider-dr', 'dr', 'val-dr');
+    bindSlider('slider-dt', 'dt', 'val-dt', '°');
+    bindSlider('slider-dn', 'dn', 'val-dn');
+
+    // Checkboxes
+    document.getElementById('chk-conj').onchange = e => { appState.showConj = e.target.checked; rebuild3DScene(); };
+    document.getElementById('chk-circle').onchange = e => { appState.showCircle = e.target.checked; rebuild3DScene(); };
+    document.getElementById('chk-helix').onchange = e => { appState.showHelix = e.target.checked; rebuild3DScene(); };
+    document.getElementById('chk-sub').onchange = e => { appState.showSub = e.target.checked; rebuild3DScene(); };
+    document.getElementById('chk-roots').onchange = e => { appState.showRoots = e.target.checked; rebuild3DScene(); };
+
+    // Special Angles & Multiply by i
+    function updateBasicSlidersUI() {
+      document.getElementById('slider-a').value = appState.a;
+      document.getElementById('val-a').textContent = appState.a;
+      document.getElementById('slider-b').value = appState.b;
+      document.getElementById('val-b').textContent = appState.b;
+      rebuild3DScene();
+    }
+
+    document.querySelectorAll('#special-angles .chip-btn[data-deg]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const deg = parseFloat(btn.dataset.deg);
+        const rad = (deg * Math.PI) / 180;
+        const r = Math.max(2, Math.min(4.5, Math.hypot(appState.a, appState.b) || 4));
+        appState.a = Number((r * Math.cos(rad)).toFixed(1));
+        appState.b = Number((r * Math.sin(rad)).toFixed(1));
+        updateBasicSlidersUI();
+      });
+    });
+
+    document.getElementById('btn-mul-i').addEventListener('click', () => {
+      // (a + bi) * i = -b + ai
+      const newA = -appState.b;
+      const newB = appState.a;
+      appState.a = Number(newA.toFixed(1));
+      appState.b = Number(newB.toFixed(1));
+      updateBasicSlidersUI();
+      showToast('หมุนทวนเข็มนาฬิกา +90° (คูณด้วย i) เรียบร้อย!');
+    });
+
+    // =========================================================
+    // 5. INTERACTIVE 3D MISSIONS (5 POINTS)
+    // =========================================================
+    function renderMissions() {
+      const container = document.getElementById('missions-container');
+      container.innerHTML = '';
+      missionsData.forEach((m, idx) => {
+        const done = appState.completedMissions[idx];
+        const isCurrent = appState.activeMissionIdx === idx;
+        const div = document.createElement('div');
+        div.className = `mission-item ${done ? 'completed' : ''}`;
+        div.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <strong style="font-size:13px; color:${done ? '#34d399' : '#f8fafc'};">${done ? '✅' : '🎯'} ${m.title}</strong>
+            <span style="font-size:11px; color:${done ? '#34d399' : '#fbbf24'};">${done ? 'ผ่านแล้ว (+1)' : '1 คะแนน'}</span>
+          </div>
+          <p style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">${m.desc}</p>
+          <div style="display:flex; gap:6px;">
+            <button class="chip-btn" onclick="selectMission(${idx})">${isCurrent ? '📍 กำลังแสดงเป้าหมายบน 3D' : '👁️ แสดงวงแหวนเป้าหมาย'}</button>
+            <button class="chip-btn highlight" onclick="verifyMission(${idx})">ตรวจพิกัด</button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+      document.getElementById('mission-score-text').textContent = `${getMissionScore()} / 5`;
+    }
+
+    window.selectMission = function(idx) {
+      appState.activeMissionIdx = idx;
+      // Switch to basic mode automatically
+      document.querySelector('.mode-pill[data-mode="basic"]').click();
+      renderMissions();
+      showToast(`แสดงเป้าหมาย ${missionsData[idx].title} บนฉาก 3D แล้ว`);
+    };
+
+    window.verifyMission = function(idx) {
+      const m = missionsData[idx];
+      const dist = Math.hypot(appState.a - m.targetA, appState.b - m.targetB);
+      if (dist <= 0.35) {
+        appState.completedMissions[idx] = true;
+        renderMissions();
+        rebuild3DScene();
+        syncCurrentStudentScore();
+        showToast(`🎉 ยอดเยี่ยม! ผ่าน${m.title} (+1 คะแนน)`);
+      } else {
+        showToast(`❌ ยังไม่ตรงเป้าหมาย (ปัจจุบันอยู่ที่ (${appState.a}, ${appState.b}) เป้าหมายคือ (${m.targetA}, ${m.targetB}))`);
+      }
+    };
+
+    // =========================================================
+    // 6. INFINITE RANDOM QUIZ GENERATOR (3 POINTS)
+    // =========================================================
+    function randInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function generateQuizSet() {
+      // Q1: Modulus of Pythagorean triple
+      const triples = [[3, 4, 5], [6, 8, 10], [5, 12, 13], [8, 15, 17]];
+      const [ta, tb, tc] = triples[randInt(0, triples.length - 1)];
+      const signA = Math.random() > 0.5 ? 1 : -1;
+      const signB = Math.random() > 0.5 ? 1 : -1;
+      const qa = ta * signA;
+      const qb = tb * signB;
+
+      const q1 = {
+        question: `1. ค่าสัมบูรณ์ของจำนวนเชิงซ้อน z = ${formatComplex(qa, qb)} เท่ากับข้อใด`,
+        options: [`${tc}`, `${tc * tc}`, `${Math.abs(qa) + Math.abs(qb)}`, `${Math.abs(qa - qb)}`],
+        correctIdx: 0,
+        explanation: `จากสูตร |z| = √(a² + b²) = √((${qa})² + (${qb})²) = √(${qa * qa} + ${qb * qb}) = √${tc * tc} = ${tc}`
+      };
+
+      // Q2: Conjugate & Operations
+      const cA = randInt(-5, 5) || 2;
+      const cB = randInt(-5, 5) || -3;
+      const conjStr = formatComplex(cA, -cB);
+      const q2 = {
+        question: `2. สังยุค (z̄) ของจำนวนเชิงซ้อน z = ${formatComplex(cA, cB)} คือข้อใด`,
+        options: [
+          formatComplex(-cA, cB),
+          conjStr,
+          formatComplex(-cA, -cB),
+          formatComplex(cB, cA)
+        ],
+        correctIdx: 1,
+        explanation: `สังยุคของ z = a + bi คือ z̄ = a - bi (กลับเครื่องหมายเฉพาะส่วนจินตภาพ) ดังนั้น z̄ = ${conjStr}`
+      };
+
+      // Q3: Polar / De Moivre
+      const angles = [
+        { deg: 30, n: 3, resDeg: 90, ans: 'i' },
+        { deg: 45, n: 2, resDeg: 90, ans: 'i' },
+        { deg: 45, n: 4, resDeg: 180, ans: '-1' },
+        { deg: 60, n: 3, resDeg: 180, ans: '-1' },
+        { deg: 90, n: 3, resDeg: 270, ans: '-i' }
+      ];
+      const pick = angles[randInt(0, angles.length - 1)];
+      const q3 = {
+        question: `3. กำหนดให้ z = cos ${pick.deg}° + i sin ${pick.deg}° ค่าของ z^${pick.n} ตรงกับข้อใด`,
+        options: ['1', '-1', 'i', '-i'],
+        correctIdx: ['1', '-1', 'i', '-i'].indexOf(pick.ans),
+        explanation: `ตามทฤษฎีบทของเดอมัวฟวร์ z^${pick.n} = cos(${pick.n}×${pick.deg}°) + i sin(${pick.n}×${pick.deg}°) = cos ${pick.resDeg}° + i sin ${pick.resDeg}° = ${pick.ans}`
+      };
+
+      appState.quizQuestions = [q1, q2, q3];
+      renderQuiz();
+    }
+
+    function renderQuiz() {
+      const container = document.getElementById('quiz-container');
+      container.innerHTML = '';
+      appState.quizQuestions.forEach((q, qIdx) => {
+        const div = document.createElement('div');
+        div.className = 'quiz-q';
+        let optsHTML = '';
+        q.options.forEach((opt, oIdx) => {
+          optsHTML += `
+            <label class="quiz-option">
+              <input type="radio" name="quiz_q_${qIdx}" value="${oIdx}">
+              <span>${opt}</span>
+            </label>
+          `;
+        });
+        div.innerHTML = `
+          <div style="font-size:13px; font-weight:600; margin-bottom:6px;">${q.question}</div>
+          ${optsHTML}
+          <div class="explanation-box" id="quiz-exp-${qIdx}">${q.explanation}</div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    document.getElementById('btn-new-quiz').addEventListener('click', () => {
+      generateQuizSet();
+      showToast('สุ่มชุดคำถามใหม่ 3 ข้อเรียบร้อย');
+    });
+
+    document.getElementById('btn-submit-quiz').addEventListener('click', () => {
+      let score = 0;
+      appState.quizQuestions.forEach((q, idx) => {
+        const selected = document.querySelector(`input[name="quiz_q_${idx}"]:checked`);
+        const expBox = document.getElementById(`quiz-exp-${idx}`);
+        expBox.style.display = 'block';
+        if (selected && Number(selected.value) === q.correctIdx) {
+          score++;
+          expBox.style.borderLeftColor = '#34d399';
+          expBox.innerHTML = `✅ <strong>ถูกต้อง!</strong> ${q.explanation}`;
+        } else {
+          expBox.style.borderLeftColor = '#fb7185';
+          expBox.innerHTML = `❌ <strong>ยังไม่ถูกต้อง</strong> (คำตอบที่ถูกคือ ${q.options[q.correctIdx]}) — ${q.explanation}`;
+        }
+      });
+
+      appState.quizScore = score;
+      syncCurrentStudentScore();
+      showToast(`ตรวจคำตอบแล้ว! ได้คะแนนแบบทดสอบ ${score} / 3 คะแนน`);
+    });
+
+    // =========================================================
+    // 7. REPORT CARD
+    // =========================================================
+    function renderReportCard() {
+      const box = document.getElementById('report-summary-content');
+      const mScore = getMissionScore();
+      const qScore = appState.quizScore;
+      const total = mScore + qScore;
+      const name = currentStudent ? currentStudent.name : 'ยังไม่ได้ลงทะเบียน';
+      const cls = currentStudent ? `${currentStudent.className} เลขที่ ${currentStudent.no}` : '-';
+
+      box.innerHTML = `
+        <div style="background:rgba(15,23,42,0.8); padding:14px; border-radius:12px; border:1px solid var(--border-glass);">
+          <div><strong>ชื่อผู้เรียน:</strong> ${name}</div>
+          <div><strong>ชั้น / เลขที่:</strong> ${cls}</div>
+          <hr style="border:0; border-top:1px solid var(--border-glass); margin:8px 0;">
+          <div>🎯 คะแนนภารกิจ 3 มิติ: <strong style="color:#38bdf8;">${mScore} / 5 คะแนน</strong></div>
+          <div>📝 คะแนนแบบทดสอบท้ายบท: <strong style="color:#818cf8;">${qScore} / 3 คะแนน</strong></div>
+          <div style="font-size:15px; margin-top:6px;">🏆 คะแนนรวมทั้งหมด: <strong style="color:#34d399;">${total} / 8 คะแนน</strong></div>
+        </div>
+      `;
+    }
+
+    document.getElementById('btn-copy-report').addEventListener('click', () => {
+      const mScore = getMissionScore();
+      const qScore = appState.quizScore;
+      const total = mScore + qScore;
+      const name = currentStudent ? currentStudent.name : 'ไม่ระบุชื่อ';
+      const cls = currentStudent ? `${currentStudent.className} เลขที่ ${currentStudent.no}` : '-';
+      const text = `📊 สรุปผลการเรียนรู้เรื่อง จำนวนเชิงซ้อน 3D (ม.5)
+ชื่อ: ${name} (${cls})
+🎯 ภารกิจ 3D: ${mScore}/5 คะแนน
+📝 แบบทดสอบ: ${qScore}/3 คะแนน
+🏆 คะแนนรวม: ${total}/8 คะแนน`;
+
+      navigator.clipboard?.writeText(text);
+      syncCurrentStudentScore();
+      showToast('คัดลอกสรุปผลคะแนนลงคลิปบอร์ดและบันทึกเข้าระบบแล้ว!');
+    });
+
+    // =========================================================
+    // 8. REGISTRATION & TEACHER ADMIN BACKEND (PASS: 123456)
+    // =========================================================
+    const regModal = document.getElementById('reg-modal');
+    document.getElementById('reg-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const name = document.getElementById('reg-name').value.trim();
+      const className = document.getElementById('reg-class').value;
+      const no = document.getElementById('reg-no').value;
+      if (!name) return;
+
+      currentStudent = { name, className, no };
+      regModal.classList.add('hidden');
+      syncCurrentStudentScore();
+      showToast(`ยินดีต้อนรับ ${name} เข้าสู่สื่อการเรียนรู้ 3D!`);
+    });
+
+    function openEditRegistration() {
+      if (currentStudent) {
+        document.getElementById('reg-name').value = currentStudent.name;
+        document.getElementById('reg-class').value = currentStudent.className;
+        document.getElementById('reg-no').value = currentStudent.no;
+      }
+      regModal.classList.remove('hidden');
+    }
+
+    document.getElementById('header-student-btn').addEventListener('click', openEditRegistration);
+    document.getElementById('btn-edit-profile').addEventListener('click', openEditRegistration);
+
+    // Admin Auth Modal
+    const adminAuthModal = document.getElementById('admin-auth-modal');
+    const adminDashboardModal = document.getElementById('admin-dashboard-modal');
+
+    document.getElementById('open-admin-btn').addEventListener('click', () => {
+      document.getElementById('admin-pass-input').value = '';
+      adminAuthModal.classList.remove('hidden');
+      setTimeout(() => document.getElementById('admin-pass-input').focus(), 100);
+    });
+
+    document.getElementById('close-auth-modal').addEventListener('click', () => {
+      adminAuthModal.classList.add('hidden');
+    });
+
+    document.getElementById('admin-auth-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const pass = document.getElementById('admin-pass-input').value.trim();
+      if (pass === '123456') {
+        adminAuthModal.classList.add('hidden');
+        renderAdminDashboard();
+        adminDashboardModal.classList.remove('hidden');
+        showToast('เข้าสู่ระบบหลังบ้านสำเร็จ');
+      } else {
+        showToast('❌ รหัสผ่านไม่ถูกต้อง (กรุณาใส่ 123456)');
+      }
+    });
+
+    document.getElementById('close-admin-dashboard').addEventListener('click', () => {
+      adminDashboardModal.classList.add('hidden');
+    });
+
+    function renderAdminDashboard() {
+      const searchQ = document.getElementById('admin-search').value.trim().toLowerCase();
+      const filterCls = document.getElementById('admin-filter-class').value;
+
+      const filtered = studentRecords.filter(r => {
+        const matchCls = filterCls === 'ALL' || r.className === filterCls;
+        const matchSearch = !searchQ || r.name.toLowerCase().includes(searchQ) || String(r.no) === searchQ;
+        return matchCls && matchSearch;
+      });
+
+      // Stats
+      const total = studentRecords.length;
+      const sumScore = studentRecords.reduce((acc, r) => acc + Number(r.totalScore || 0), 0);
+      const maxScore = total > 0 ? Math.max(...studentRecords.map(r => Number(r.totalScore || 0))) : 0;
+      const passCount = studentRecords.filter(r => Number(r.totalScore || 0) >= 5).length;
+
+      document.getElementById('stat-total').textContent = `${total} คน`;
+      document.getElementById('stat-avg').textContent = total > 0 ? `${(sumScore / total).toFixed(2)} / 8` : '0.00 / 8';
+      document.getElementById('stat-max').textContent = `${maxScore} / 8`;
+      document.getElementById('stat-pass').textContent = total > 0 ? `${Math.round((passCount / total) * 100)}%` : '0%';
+
+      const tbody = document.getElementById('admin-table-body');
+      tbody.innerHTML = '';
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:20px;">ยังไม่มีข้อมูลผู้ลงทะเบียนในเงื่อนไขที่เลือก</td></tr>`;
+        return;
+      }
+
+      filtered
+        .sort((a, b) => a.className.localeCompare(b.className) || a.no - b.no)
+        .forEach(rec => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${rec.className}</td>
+            <td>${rec.no}</td>
+            <td><strong>${rec.name}</strong></td>
+            <td>${rec.missionScore} / 5</td>
+            <td>${rec.quizScore} / 3</td>
+            <td><span class="score-pill">${rec.totalScore} / 8</span></td>
+            <td style="font-size:11px; color:var(--text-muted);">${rec.updatedAt || '-'}</td>
+            <td>
+              <button class="chip-btn" onclick="editAdminRecord('${rec.id}')">แก้ไข</button>
+              <button class="chip-btn" style="border-color:#fb7185; color:#fda4af;" onclick="deleteAdminRecord('${rec.id}')">ลบ</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+    }
+
+    document.getElementById('admin-search').addEventListener('input', renderAdminDashboard);
+    document.getElementById('admin-filter-class').addEventListener('change', renderAdminDashboard);
+
+    // Manual Add / Update Record in Admin
+    document.getElementById('admin-add-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const name = document.getElementById('adm-name').value.trim();
+      const className = document.getElementById('adm-class').value;
+      const no = Number(document.getElementById('adm-no').value);
+      const missionScore = Math.min(5, Math.max(0, Number(document.getElementById('adm-mission').value)));
+      const quizScore = Math.min(3, Math.max(0, Number(document.getElementById('adm-quiz').value)));
+      const totalScore = missionScore + quizScore;
+
+      const id = `${className}_${no}_${name}`;
+      const nowStr = new Date().toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
+      const idx = studentRecords.findIndex(r => r.id === id);
+
+      const newObj = { id, name, className, no, missionScore, quizScore, totalScore, updatedAt: nowStr };
+      if (idx >= 0) studentRecords[idx] = newObj;
+      else studentRecords.push(newObj);
+
+      saveStorage();
+      renderAdminDashboard();
+      document.getElementById('adm-name').value = '';
+      showToast(`บันทึกคะแนนของ ${name} เรียบร้อย`);
+    });
+
+    window.editAdminRecord = function(id) {
+      const rec = studentRecords.find(r => r.id === id);
+      if (!rec) return;
+      document.getElementById('adm-name').value = rec.name;
+      document.getElementById('adm-class').value = rec.className;
+      document.getElementById('adm-no').value = rec.no;
+      document.getElementById('adm-mission').value = rec.missionScore;
+      document.getElementById('adm-quiz').value = rec.quizScore;
+      showToast(`โหลดข้อมูล ${rec.name} ขึ้นฟอร์มแก้ไขด้านบนแล้ว`);
+    };
+
+    window.deleteAdminRecord = function(id) {
+      studentRecords = studentRecords.filter(r => r.id !== id);
+      saveStorage();
+      renderAdminDashboard();
+      showToast('ลบรายการเรียบร้อย');
+    };
+
+    // Export CSV with UTF-8 BOM for Thai Excel
+    document.getElementById('btn-export-csv').addEventListener('click', () => {
+      const headers = ['ห้องเรียน', 'เลขที่', 'ชื่อ-นามสกุล', 'คะแนนภารกิจ 3D (5)', 'คะแนนแบบทดสอบ (3)', 'คะแนนรวม (8)', 'อัปเดตล่าสุด'];
+      const rows = studentRecords.map(r => [
+        r.className, r.no, `"${r.name}"`, r.missionScore, r.quizScore, r.totalScore, `"${r.updatedAt || ''}"`
+      ]);
+      const csvContent = '﻿' + [headers.join(','), ...rows.map(e => e.join(','))].join('
+');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `คะแนน_จำนวนเชิงซ้อน3D_ม5.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('ดาวน์โหลดไฟล์ CSV เรียบร้อย');
+    });
+
+    // =========================================================
+    // 9. INITIALIZE APPLICATION
+    // =========================================================
+    loadStorage();
+    if (currentStudent) {
+      regModal.classList.add('hidden');
+    }
+    renderMissions();
+    generateQuizSet();
+    rebuild3DScene();
+    syncCurrentStudentScore();
+  </script>
+</body>
+</html>
